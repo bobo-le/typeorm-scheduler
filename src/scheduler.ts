@@ -1,39 +1,88 @@
 import * as parser from 'cron-parser';
 import { promise as sleep } from 'es6-sleep';
 import moment from 'moment';
-import { getConnection, LessThan, Not, Repository } from 'typeorm';
-import { Cronjob } from '../cronjob';
+import { getConnection, getRepository, LessThan, Not, Repository } from 'typeorm';
 
 /**
  * Configuration object interface.
  */
 export interface SchedulerConfig {
-  repository: Repository<any> | (() => Repository<any>);
-  entity: any,
-  condition?: any;
-  nextDelay?: number; // wait before processing next job
-  reprocessDelay?: number; // wait before processing the same job again
-  idleDelay?: number; // when there is no jobs for processing, wait before continue
-  lockDuration?: number; // the time of milliseconds that each job gets locked (we have to make sure that the job completes in that time frame)
+  /**
+   * Your crnjob entity
+   */
+  entity: any;
+
+  /**
+   * Duration to interrupt executing before every iteration. unit in milliseconds
+   * default: 0
+   */
+  nextDelay?: number;
+
+  /**
+   * Time to wait if no new job was found. unit in milliseconds
+   * default: 100000
+   */
+  idleDelay?: number;
+
+  /**
+   * Duration to lock the current job in the database. be sure that the execution finishes in this time. unit in milliseconds
+   * default: 600000
+   */
+  lockDuration?: number;
+
+  /**
+   * Field name in your entity
+   * default: sleepUntil
+   */
   sleepUntilFieldPath?: string;
+
+  /**
+   * Field name in your entity
+   * default: interval
+   */
   intervalFieldPath?: string;
+
+  /**
+   * Field name in your entity
+   * default: repeatUntil
+   */
   repeatUntilFieldPath?: string;
+
+  /**
+   * Field name in your entity
+   * default: autoRemove
+   */
   autoRemoveFieldPath?: string;
 
-  onNewJob?(doc: any): (any | Promise<any>);
+  /**
+   * Your callback function that gets called if a new job was found
+   * @param job founded job
+   */
+  onNewJob?(job: any): (any | Promise<any>);
 
+  /**
+   * Callback will be called before starting
+   */
   onStart?(): (any | Promise<any>);
 
+  /**
+   * Callback be called at ending
+   */
   onStop?(): (any | Promise<any>);
 
+  /**
+   * Callback will be called if no new job was found and before idleSleep will be called
+   */
   onIdle?(): (any | Promise<any>);
 
+  /**
+   *
+   * @param err
+   */
   onError?(err: any): (any | Promise<any>);
 }
 
-/**
- * Main class for converting a collection into cron.
- */
+
 export class Scheduler {
   protected running = false;
   protected processing = false;
@@ -41,15 +90,14 @@ export class Scheduler {
   protected readonly config: SchedulerConfig;
 
   /**
-   * Class constructor.
-   * @param config Configuration object.
+   *
+   * @param config SchedulerConfig-instance with your overrides
    */
   public constructor(config: SchedulerConfig) {
     this.config = {
       onNewJob: (doc) => doc,
       onError: console.error,
       nextDelay: 0,
-      reprocessDelay: 0,
       idleDelay: 10000,
       lockDuration: 600000,
       sleepUntilFieldPath: 'sleepUntil',
@@ -61,39 +109,12 @@ export class Scheduler {
   }
 
   /**
-   * Returns the used job entity
-   * The collection can be provided in the config as an instance or a function.
+   * Returns the proper repository for the used entity
    */
   protected getRepository(): Repository<any> {
-    return typeof this.config.repository === 'function'
-      ? this.config.repository()
-      : this.config.repository;
+    return getRepository(this.config.entity);
   }
 
-  protected getEntity(): any {
-    return this.config.entity;
-  }
-
-  /**
-   * Tells if the process is started.
-   */
-  public isRunning() {
-    return this.running;
-  }
-
-  /**
-   * Tells if a document is processing.
-   */
-  public isProcessing() {
-    return this.processing;
-  }
-
-  /**
-   * Tells if the process is idle.
-   */
-  public isIdle() {
-    return this.idle;
-  }
 
   /**
    * Starts the scheduler.
@@ -163,7 +184,7 @@ export class Scheduler {
         }
 
         // calc new times and update job
-        await this.reschedule(job);
+        await this.rescheduleSleep(job);
         this.processing = false;
       }
     } catch (err) {
@@ -175,17 +196,15 @@ export class Scheduler {
   }
 
   /**
-   * Locks the next job document for processing and returns it.
+   * Locks the next job document for processing and returns it if it exists. Otherwise returns null.
    */
-  protected async checkNextAndLock() {
-    const sleepUntil = moment().add(this.config.lockDuration, 'milliseconds').toDate();
-    const currentDate = moment().add(1, 'hour').toISOString();
-
-    const tmp = await this.getRepository().find();
+  protected async checkNextAndLock(): Promise<any | undefined> {
+    const lockDuration = moment().add(this.config.lockDuration, 'milliseconds').format('X');
+    const currentDate = moment().format('X');
 
     // use transaction mode to make sure that concurrent schedulers doesnt access the same object
     return await getConnection().transaction(async entityManager => {
-      const origJob: any = await entityManager.findOne(Cronjob, {
+      const origJob: any = await entityManager.findOne(this.config.entity, {
         where: {
           [this.config.sleepUntilFieldPath]: Not(null),
           [this.config.sleepUntilFieldPath]: LessThan(currentDate),
@@ -193,10 +212,8 @@ export class Scheduler {
       });
 
       if (origJob) {
-        // a job was found, so lock this job and return his orig values
-        const updated = origJob;
-        updated[this.config.sleepUntilFieldPath] = sleepUntil;
-        await entityManager.save(updated);
+        // a job was found, so lock this job
+        await entityManager.update(this.config.entity, origJob.id, {[this.config.sleepUntilFieldPath]: lockDuration})
       }
 
       return origJob;
@@ -204,26 +221,31 @@ export class Scheduler {
   }
 
   /**
-   * Returns the next date when a job document can be processed or `null` if the
+   * Returns the next timestamp when a job document can be processed or `null` if the
    * job has expired.
-   * @param doc Mongo document.
+   * @param job Cronjob to check
    */
-  protected getNextStart(doc: any): Date {
+  protected getNextStart(job: any): string | null {
     if (!this.config.intervalFieldPath) {
       return null;
     }
 
-    const available = moment(this.config.sleepUntilFieldPath); // first available next date
-    const future = moment(available).add(this.config.reprocessDelay, 'milliseconds'); // date when the next start is possible
+    // first available next date
+    const available = moment(job[this.config.sleepUntilFieldPath], 'X');
+
+    // date when the next start is possible
+    const future = moment(available);
 
     try {
-      const interval = parser.parseExpression(this.config.intervalFieldPath, {
+      const interval = parser.parseExpression(job[this.config.intervalFieldPath], {
         currentDate: future.toDate(),
-        endDate: this.config.repeatUntilFieldPath,
+        endDate: job[this.config.repeatUntilFieldPath],
       });
-      const next = interval.next().toDate();
-      const now = moment().toDate();
-      return next < now ? now : next; // process old recurring jobs only once
+
+      const next = moment(interval.next().toDate()).format('X');
+      const now = moment().format('X');
+
+      return next < now ? now : next;
     } catch (err) {
       return null;
     }
@@ -232,25 +254,24 @@ export class Scheduler {
   /**
    * Tries to reschedule a job document, to mark it as expired or to delete a job
    * if `autoRemove` is set to `true`.
-   * @param doc Mongo document.
+   * @param job Cronjob to update
    */
-  public async reschedule(doc: any): Promise<void> {
-    const nextStart = this.getNextStart(doc);
-    const _id = doc._id;
+  public async rescheduleSleep(job: any): Promise<void> {
+    const nextStart = this.getNextStart(job);
 
-    // TODO and change here
-    // if (!nextStart && this.config.autoRemoveFieldPath) {
-    // remove if auto-removable and not recuring
-    //     await this.getCollection().deleteOne({_id});
-    // } else if (!nextStart) { // stop execution
-    //     await this.getCollection().updateOne({_id}, {
-    //         $set: {[this.config.sleepUntilFieldPath]: null},
-    //     });
-    // } else { // reschedule for reprocessing in the future (recurring)
-    //     await this.getCollection().updateOne({_id}, {
-    //         $set: {[this.config.sleepUntilFieldPath]: nextStart},
-    //     });
-    // }
+    // if nexStart is null, then the cronjob is expired and shall not be executed again.
+    // to archive this, set the field in the db to null, or if the job should be deleted, the the entire job
+    if (!nextStart && job[this.config.autoRemoveFieldPath]) {
+      // delete the job from db
+      await this.getRepository().delete(job.id);
+    } else if (!nextStart) {
+      // set sleepUntil to null
+      await this.getRepository().update(job.id, { [this.config.sleepUntilFieldPath]: null });
+    } else {
+      // update the job with his new sleepUntil field in the future
+      // @ts-ignore
+      await this.getRepository().update(job.id, { [this.config.sleepUntilFieldPath]: nextStart });
+    }
   }
 
 }

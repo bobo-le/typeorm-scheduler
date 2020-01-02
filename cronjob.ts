@@ -1,16 +1,16 @@
-import {Column, Entity, PrimaryGeneratedColumn} from "typeorm";
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class Cronjob {
-    @PrimaryGeneratedColumn()
-    id: number
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column({type: 'datetime', nullable: true})
-    sleepUntil?: Date
+  @Column({ nullable: true })
+  sleepUntil?: string;
 
-    @Column({nullable: true})
-    intervall?: string
+  @Column({ nullable: true })
+  interval?: string;
 
-    @Column({default: false})
-    autoRemove?: boolean
+  @Column({ default: false })
+  autoRemove?: boolean;
 }

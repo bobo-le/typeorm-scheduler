@@ -1,5 +1,5 @@
 # TODOS
 - add eslint
 - add tests
-- getter and setter for class variables
-- save 
+- add readme doc
+- add build scripts for ts and separate from example
