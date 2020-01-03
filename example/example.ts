@@ -18,7 +18,8 @@ async function clearDatabase() {
 }
 
 async function seedDatabase() {
-  await getRepository(Cronjob).insert({ sleepUntil: moment().format('X'), interval: '* * * * *' });
+  // repeat every five minutes
+  await getRepository(Cronjob).insert({ sleepUntil: moment().format('X'), interval: '*/5 * * * *' });
 }
 
 // init scheduler
@@ -37,19 +38,15 @@ async function main() {
     autoRemoveFieldPath: 'autoRemove',
     intervalFieldPath: 'interval',
     sleepUntilFieldPath: 'sleepUntil',
-    onError(err: any): any | Promise<any> {
-      console.log(err);
-    },
-    onNewJob(doc: any): any | Promise<any> {
-      console.log(doc);
+    onNewJob(job: any) {
+      console.log(job);
     },
     onStart(): any | Promise<any> {
-      console.log(1);
+      console.log('starting');
     },
   });
 
   await scheduler.start();
-  // await scheduler.stop()
 }
 
 main();
