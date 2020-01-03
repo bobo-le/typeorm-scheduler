@@ -2,7 +2,8 @@
   "name": "typeorm-scheduler",
   "version": "1.0.0",
   "description": "",
-  "main": "index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "test": "mocha -r ts-node/register --exit tests/**/*.ts",
     "dev": "ts-node-dev --respawn example/example.ts",

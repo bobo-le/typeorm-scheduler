@@ -1,4 +1,8 @@
+example
+tests
 .idea
 node_modules
 dist
 *.db
+src
+index.ts
