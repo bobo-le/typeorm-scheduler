@@ -141,7 +141,7 @@ export class Scheduler {
     if (this.processing) {
       // processing is not completed. so wait 300ms and call the method again on the end of event loop
       await sleep(300);
-      return process.nextTick(this.stop());
+      return process.nextTick(this.stop.bind(this));
     }
 
     if (this.config.onStop) {

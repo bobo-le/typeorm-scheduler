@@ -13,4 +13,7 @@ export class Cronjob {
 
   @Column({ default: false })
   autoRemove?: boolean;
+
+  @Column({ nullable: true })
+  repeatUntil?: Date;
 }

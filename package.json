@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "ts-node-dev --respawn example.ts",
+    "test": "mocha -r ts-node/register --exit tests/**/*.ts",
+    "dev": "ts-node-dev --respawn example/example.ts",
     "build": "npm run clean && tsc",
     "clean": "rimraf ./dist"
   },

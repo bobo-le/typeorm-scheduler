@@ -1,4 +1,4 @@
-import { Scheduler } from './index';
+import { Scheduler } from '../index';
 import { createConnection, getRepository } from 'typeorm';
 import { Cronjob } from './cronjob';
 import moment = require('moment');
