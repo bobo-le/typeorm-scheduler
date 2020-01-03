@@ -71,77 +71,80 @@ getRepository(Cronjob).insert({..., interval: '*/5 * * * *', repeatUntil: moment
 If a one-time or a repeated job is finished, his `sleepUntil` field will be set to null.
 This marks the job as expired.
 
-If you want to remove the job from the database after expiring, set the `autoRemove` field to true
-sleepUntil: moment().format('X')
+If you want to remove the job from the database after expiring, set the `autoRemove` field to `true`
 
 # Schedulerconfig
 ```typescript
 interface SchedulerConfig {
   /**
-   * Your crnjob entity
+   * Your cronjob entity
    */
   entity: any;
 
   /**
-   * Duration to interrupt executing before every iteration. unit in milliseconds
+   * Duration to interrupt executing before every iteration. 
+   * Unit in milliseconds.
    * default: 0
    */
   nextDelay?: number;
 
   /**
-   * Time to wait if no new job was found. unit in milliseconds
+   * Time to wait if no new job was found. 
+   * Unit in milliseconds.
    * default: 100000
    */
   idleDelay?: number;
 
   /**
-   * Duration to lock the current job in the database. be sure that the execution finishes in this time. unit in milliseconds
+   * Duration to lock the current job in the database. 
+   * Be sure that the execution finishes in this time. 
+   * Unit in milliseconds.
    * default: 600000
    */
   lockDuration?: number;
 
   /**
-   * Field name in your entity
+   * Field name in your entity.
    * default: sleepUntil
    */
   sleepUntilFieldPath?: string;
 
   /**
-   * Field name in your entity
+   * Field name in your entity.
    * default: interval
    */
   intervalFieldPath?: string;
 
   /**
-   * Field name in your entity
+   * Field name in your entity.
    * default: repeatUntil
    */
   repeatUntilFieldPath?: string;
 
   /**
-   * Field name in your entity
+   * Field name in your entity.
    * default: autoRemove
    */
   autoRemoveFieldPath?: string;
 
   /**
-   * Your callback function that gets called if a new job was found
+   * Your callback function that gets called if a new job was found.
    * @param job founded job
    */
   onNewJob?(job: any): (any | Promise<any>);
 
   /**
-   * Callback will be called before starting
+   * Callback will be called before starting.
    */
   onStart?(): (any | Promise<any>);
 
   /**
-   * Callback be called at ending
+   * Callback be called at ending.
    */
   onStop?(): (any | Promise<any>);
 
   /**
-   * Callback will be called if no new job was found and before idleSleep will be called
+   * Callback will be called if no new job was found and before idleSleep will be called.
    */
   onIdle?(): (any | Promise<any>);
 
