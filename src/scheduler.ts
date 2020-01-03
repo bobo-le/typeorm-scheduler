@@ -84,10 +84,10 @@ export interface SchedulerConfig {
 
 
 export class Scheduler {
-  protected running = false;
-  protected processing = false;
-  protected idle = false;
-  protected readonly config: SchedulerConfig;
+  private running = false;
+  private processing = false;
+  private idle = false;
+  private readonly config: SchedulerConfig;
 
   /**
    *
@@ -111,7 +111,7 @@ export class Scheduler {
   /**
    * Returns the proper repository for the used entity
    */
-  protected getRepository(): Repository<any> {
+  private getRepository(): Repository<any> {
     return getRepository(this.config.entity);
   }
 
@@ -152,7 +152,7 @@ export class Scheduler {
   /**
    * Private method which runs the heartbit tick.
    */
-  protected async tick() {
+  private async tick() {
     if (!this.running) {
       return;
     }
@@ -198,7 +198,7 @@ export class Scheduler {
   /**
    * Locks the next job document for processing and returns it if it exists. Otherwise returns null.
    */
-  protected async checkNextAndLock(): Promise<any | undefined> {
+  private async checkNextAndLock(): Promise<any | undefined> {
     const lockDuration = moment().add(this.config.lockDuration, 'milliseconds').format('X');
     const currentDate = moment().format('X');
 
@@ -225,7 +225,7 @@ export class Scheduler {
    * job has expired.
    * @param job Cronjob to check
    */
-  protected getNextStart(job: any): string | null {
+  private getNextStart(job: any): string | null {
     if (!this.config.intervalFieldPath) {
       return null;
     }
@@ -256,7 +256,7 @@ export class Scheduler {
    * if `autoRemove` is set to `true`.
    * @param job Cronjob to update
    */
-  public async rescheduleSleep(job: any): Promise<void> {
+  private async rescheduleSleep(job: any): Promise<void> {
     const nextStart = this.getNextStart(job);
 
     // if nexStart is null, then the cronjob is expired and shall not be executed again.
