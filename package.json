@@ -21,7 +21,7 @@
   },
   "homepage": "https://github.com/bobo-le/typeorm-scheduler#readme",
   "dependencies": {
-    "typeorm": "0.2.21",
+    "typeorm": "0.2.25",
     "cron-parser": "2.13.0",
     "moment": "2.24.0",
     "es6-sleep": "2.0.2"
